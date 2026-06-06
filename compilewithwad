@@ -1,0 +1,92 @@
+import struct, sys, math
+
+# ---------------------------
+# WAD HEADER + DIRECTORY
+# ---------------------------
+
+def load_wad(path):
+    with open(path, "rb") as f:
+        header = f.read(12)
+        ident, numlumps, infotableofs = struct.unpack("<4sii", header)
+
+        if ident not in [b"IWAD", b"PWAD"]:
+            raise ValueError("Not a valid WAD")
+
+        f.seek(infotableofs)
+        lumps = []
+        for _ in range(numlumps):
+            filepos, size, name = struct.unpack("<ii8s", f.read(16))
+            lumps.append((filepos, size, name.rstrip(b"\0").decode()))
+
+        return f, lumps
+
+
+# ---------------------------
+# GET LUMP BY NAME
+# ---------------------------
+
+def get_lump(wadfile, lumps, name):
+    for filepos, size, lname in lumps:
+        if lname == name:
+            wadfile.seek(filepos)
+            return wadfile.read(size)
+    return None
+
+
+# ---------------------------
+# PARSE A DOOM MAP (VERTEXES + LINEDEFS)
+# ---------------------------
+
+def parse_vertices(data):
+    verts = []
+    for i in range(0, len(data), 4):
+        x, y = struct.unpack("<hh", data[i:i+4])
+        verts.append((x, y))
+    return verts
+
+def parse_linedefs(data):
+    lines = []
+    for i in range(0, len(data), 14):
+        v1, v2, flags, ttype, tag, sidenum0, sidenum1 = struct.unpack("<hhhhhhh", data[i:i+14])
+        lines.append((v1, v2))
+    return lines
+
+
+# ---------------------------
+# ZERO‑CIRCLE VECTOR RENDER
+# ---------------------------
+
+def render_vector_scene(vertices, lines):
+    for (v1, v2) in lines:
+        x1, y1 = vertices[v1]
+        x2, y2 = vertices[v2]
+        print(f"LINE {x1},{y1} -> {x2},{y2}")
+
+
+# ---------------------------
+# MAIN ENGINE LOOP
+# ---------------------------
+
+def run_engine(wad_path, mapname="MAP01"):
+    wadfile, lumps = load_wad(wad_path)
+
+    verts = parse_vertices(get_lump(wadfile, lumps, "VERTEXES"))
+    lines = parse_linedefs(get_lump(wadfile, lumps, "LINEDEFS"))
+
+    print("=== VECTOR DOOM ENGINE ===")
+    print(f"Loaded {len(verts)} vertices, {len(lines)} lines")
+
+    # Zero‑Circle tick loop
+    tick = 0
+    while tick < 256:
+        print(f"\nTICK {tick}")
+        render_vector_scene(verts, lines)
+        tick = (tick + 1) % 65536
+
+
+# ---------------------------
+# ENTRY
+# ---------------------------
+
+if __name__ == "__main__":
+    run_engine(sys.argv[1])

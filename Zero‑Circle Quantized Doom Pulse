@@ -1,0 +1,1 @@
+zc_pulse=lambda n=256,K=4096,E=64,fb=0.3:[(lambda e,v,f:(v:=((abs(e:=((__import__("math").exp(-0.5*((t-n/2)/(n/8))**2))+fb*(f if t else 0))))**1)*(1 if e>=0 else -1),f:=v,(v:=int((v+1)/2*(E-1))%E))[2] for t in range(n)]

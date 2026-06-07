@@ -1,0 +1,47 @@
+# branchless Zero-Circle pulse (yours)
+
+import struct, math, sys
+
+zc_pulse=lambda n=256,E=64,fb=0.3:[(lambda e,v,f:(v:=abs(e:=math.exp(-.5*((t-n/2)/(n/8))**2)+fb*(f if t else 0))*(2*(e>=0)-1),(f:=v),int((v+1)/2*(E-1))%E)[2])(0,0,0)for t in range(n)]
+
+# WAD accepter
+def wad_accept(path):
+    f = open(path, "rb")
+    ident, numlumps, ofs = struct.unpack("<4sii", f.read(12))
+    if ident not in (b"IWAD", b"PWAD"):
+        raise ValueError("Not a valid WAD")
+    f.seek(ofs)
+    lumps = [struct.unpack("<ii8s", f.read(16)) for _ in range(numlumps)]
+    lumps = [(o, s, n.rstrip(b"\0").decode()) for o, s, n in lumps]
+    return f, lumps
+
+def get_lump(f, lumps, name):
+    for o, s, n in lumps:
+        if n == name:
+            f.seek(o)
+            return f.read(s)
+    return b""  # safe default
+
+# parsers
+parse_vertices = lambda d: [struct.unpack("<hh", d[i:i+4]) for i in range(0, len(d), 4)]
+parse_linedefs = lambda d: [struct.unpack("<hhhhhhh", d[i:i+14])[:2] for i in range(0, len(d), 14)]
+
+# renderer
+render_vec = lambda V, L: [print("LINE %d,%d->%d,%d" % ((*V[a], *V[b]))) for a, b in L]
+
+# engine
+def run(path):
+    f, lumps = wad_accept(path)
+    verts = parse_vertices(get_lump(f, lumps, "VERTEXES"))
+    lines = parse_linedefs(get_lump(f, lumps, "LINEDEFS"))
+    pulse = zc_pulse()
+
+    for t in range(64):
+        print(f"\nTICK {t} PULSE={pulse[t % len(pulse)]}")
+        render_vec(verts, lines)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("usage: python onedoom.py MYMAP.WAD")
+    else:
+        run(sys.argv[1])
